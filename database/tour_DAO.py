@@ -16,7 +16,9 @@ class TourDAO:
             return None
 
         cursor = cnx.cursor(dictionary=True)
-        query = """ ADD YOUR QUERY """ # TODO
+        query = """ SELECT *
+                    FROM tour
+                    ORDER BY costo DESC"""
         try:
             cursor.execute(query)
             for row in cursor:
@@ -24,7 +26,7 @@ class TourDAO:
                     id=row["id"],
                     nome=row["nome"],
                     durata_giorni=row["durata_giorni"],
-                    costo=row["costo"],
+                    costo=float(row["costo"]),
                     id_regione=row["id_regione"]
                 )
                 result[tour.id] = tour
@@ -50,7 +52,8 @@ class TourDAO:
             return None
 
         cursor = cnx.cursor(dictionary=True)
-        query = """ ADD YOUR QUERY """ # TODO
+        query = """ SELECT id_tour , id_attrazione
+                    FROM  tour_attrazione"""
         try:
             cursor.execute(query)
             for row in cursor:

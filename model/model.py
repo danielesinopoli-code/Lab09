@@ -1,3 +1,5 @@
+import copy
+
 from database.regione_DAO import RegioneDAO
 from database.tour_DAO import TourDAO
 from database.attrazione_DAO import AttrazioneDAO
@@ -11,12 +13,11 @@ class Model:
         self._valore_ottimo: int = -1
         self._costo = 0
 
-        # TODO: Aggiungere eventuali altri attributi
-
-        # Caricamento
         self.load_tour()
         self.load_attrazioni()
         self.load_relazioni()
+
+
 
     @staticmethod
     def load_regioni():
@@ -38,8 +39,24 @@ class Model:
             --> Ogni Tour ha un set di Attrazione.
             --> Ogni Attrazione ha un set di Tour.
         """
+        relazioni = TourDAO.get_tour_attrazioni()  # Restituisce lista di {id_tour, id_attrazione}
 
-        # TODO
+        if not relazioni:
+            return
+
+        for row in relazioni:
+            t_id = row["id_tour"]
+            a_id = row["id_attrazione"]
+
+            if t_id in self.tour_map and a_id in self.attrazioni_map:
+                tour_obj = self.tour_map[t_id]
+                attr_obj = self.attrazioni_map[a_id]
+
+                # Aggiungo l'oggetto attrazione al set del tour
+                tour_obj.attrazioni.add(attr_obj)
+                # (Opzionale) Aggiungo il tour all'attrazione
+
+
 
     def genera_pacchetto(self, id_regione: str, max_giorni: int = None, max_budget: float = None):
         """
@@ -55,12 +72,75 @@ class Model:
         self._pacchetto_ottimo = []
         self._costo = 0
         self._valore_ottimo = -1
+        tour_disponibili= []
+        for tour in self.tour_map.values():
+            if tour.id_regione == id_regione:
+                tour_disponibili.append(tour)
+        self._ricorsione(0,[],tour_disponibili,max_giorni,max_budget,0,set())
 
-        # TODO
+
 
         return self._pacchetto_ottimo, self._costo, self._valore_ottimo
 
-    def _ricorsione(self, start_index: int, pacchetto_parziale: list, durata_corrente: int, costo_corrente: float, valore_corrente: int, attrazioni_usate: set):
-        """ Algoritmo di ricorsione che deve trovare il pacchetto che massimizza il valore culturale"""
+    def _ricorsione(self, start_index: int, pacchetto_parziale: list, tour_disponibili, giorni_rimanenti: int,
+                    budget_rimanente: float, valore_corrente: int, attrazioni_usate: set):
 
-        # TODO: è possibile cambiare i parametri formali della funzione se ritenuto opportuno
+        # 1. Aggiornamento del Massimo (
+        if valore_corrente > self._valore_ottimo:
+            self._valore_ottimo = valore_corrente
+            self._pacchetto_ottimo = copy.deepcopy(pacchetto_parziale)
+            self._costo = sum(t.costo for t in pacchetto_parziale)
+
+
+        for i in range(start_index, len(tour_disponibili)):
+            tour_corrente = tour_disponibili[i]
+
+            # --- CHECK VINCOLI ---
+
+            # Check Budget
+            if budget_rimanente is not None and tour_corrente.costo > budget_rimanente:
+                continue
+
+            # Check Giorni
+            if giorni_rimanenti is not None and tour_corrente.durata_giorni > giorni_rimanenti:
+                continue
+
+            # Check Duplicati Attrazioni
+            if not tour_corrente.attrazioni.isdisjoint(attrazioni_usate):
+                continue
+
+
+
+            # Calcolo i valori per il prossimo passo
+            valore_tour = sum(attr.valore_culturale for attr in tour_corrente.attrazioni)
+
+
+            nuovo_valore = valore_corrente + valore_tour
+
+
+            nuovi_giorni = giorni_rimanenti - tour_corrente.durata_giorni if giorni_rimanenti is not None else None
+            nuovo_budget = budget_rimanente - tour_corrente.costo if budget_rimanente is not None else None
+
+            nuove_attrazioni = attrazioni_usate.union(tour_corrente.attrazioni)
+
+            pacchetto_parziale.append(tour_corrente)
+
+
+            self._ricorsione(
+                i + 1,
+                pacchetto_parziale,
+                tour_disponibili,
+                nuovi_giorni,
+                nuovo_budget,
+                nuovo_valore,
+                nuove_attrazioni
+            )
+
+            # --- BACKTRACKING ---
+            pacchetto_parziale.pop()
+
+
+
+
+
+
